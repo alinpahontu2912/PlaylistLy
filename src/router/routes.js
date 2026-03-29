@@ -5,6 +5,14 @@ const routes = [
     children: [
       { path: '', component: () => import('pages/IndexPage.vue') },
       {
+        path: 'select',
+        component: () => import('pages/SelectContentPage.vue'),
+      },
+      {
+        path: 'transfer',
+        component: () => import('pages/TransferPage.vue'),
+      },
+      {
         path: 'results',
         component: () => import('pages/TransferResultsPage.vue'),
       },

@@ -8,9 +8,9 @@
           <h1 class="results-header__title">Transfer Complete</h1>
         </div>
         <div class="results-header__badges">
-          <q-badge class="badge-spotify" rounded>Spotify</q-badge>
+          <q-badge class="badge-source" rounded>{{ sourceLabel }}</q-badge>
           <span class="badge-arrow">→</span>
-          <q-badge class="badge-tidal" rounded>Tidal</q-badge>
+          <q-badge class="badge-target" rounded>{{ targetLabel }}</q-badge>
         </div>
       </div>
 
@@ -48,8 +48,8 @@
           variant="success"
         >
           <SongItem
-            v-for="song in successSongs"
-            :key="song.title"
+            v-for="(song, idx) in successSongs"
+            :key="idx"
             :title="song.title"
             :artist="song.artist"
             variant="success"
@@ -70,14 +70,15 @@
               color="negative"
               size="sm"
               class="download-btn"
+              @click="downloadFailedList"
             >
               <Download :size="16" class="q-mr-xs" />
               Download list
             </q-btn>
           </template>
           <SongItem
-            v-for="song in failedSongs"
-            :key="song.title"
+            v-for="(song, idx) in failedSongs"
+            :key="idx"
             :title="song.title"
             :artist="song.artist"
             :reason="song.reason"
@@ -85,49 +86,76 @@
           />
         </SongListCard>
       </div>
+
+      <!-- Actions -->
+      <div class="results-actions">
+        <q-btn
+          outline
+          no-caps
+          rounded
+          color="primary"
+          @click="startOver"
+        >
+          <ArrowLeft :size="18" class="q-mr-sm" />
+          Transfer More
+        </q-btn>
+      </div>
     </div>
   </q-page>
 </template>
 
 <script setup>
-import { Music2, CheckCircle2, XCircle, Download } from 'lucide-vue-next';
+import { computed } from 'vue';
+import { useRouter } from 'vue-router';
+import {
+  Music2,
+  CheckCircle2,
+  XCircle,
+  Download,
+  ArrowLeft,
+} from 'lucide-vue-next';
 import StatCard from 'components/StatCard.vue';
 import SongListCard from 'components/SongListCard.vue';
 import SongItem from 'components/SongItem.vue';
+import { useTransferStore } from '../stores/transfer';
 
 defineOptions({ name: 'TransferResultsPage' });
 
-// Icon references for StatCard component binding
+const router = useRouter();
+const transferStore = useTransferStore();
+
 const Music2Icon = Music2;
 const CheckCircle2Icon = CheckCircle2;
 const XCircleIcon = XCircle;
 
-// Sample data matching the design
-const successSongs = [
-  { title: 'Blinding Lights', artist: 'The Weeknd' },
-  { title: 'Levitating', artist: 'Dua Lipa' },
-  { title: 'Save Your Tears', artist: 'The Weeknd' },
-  { title: 'Peaches', artist: 'Justin Bieber' },
-  { title: 'Good 4 U', artist: 'Olivia Rodrigo' },
-  { title: 'Stay', artist: 'The Kid LAROI & Justin Bieber' },
-  { title: 'Montero', artist: 'Lil Nas X' },
-  { title: 'Kiss Me More', artist: 'Doja Cat ft. SZA' },
-  { title: 'drivers license', artist: 'Olivia Rodrigo' },
-  { title: 'Butter', artist: 'BTS' },
-  { title: 'Heat Waves', artist: 'Glass Animals' },
-  { title: 'Shivers', artist: 'Ed Sheeran' },
-  { title: 'Take My Breath', artist: 'The Weeknd' },
-  { title: 'Industry Baby', artist: 'Lil Nas X & Jack Harlow' },
-  { title: 'Need To Know', artist: 'Doja Cat' },
-];
+const sourceLabel = computed(() =>
+  transferStore.source === 'spotify' ? 'Spotify' : 'Tidal',
+);
+const targetLabel = computed(() =>
+  transferStore.target === 'spotify' ? 'Spotify' : 'Tidal',
+);
 
-const failedSongs = [
-  { title: 'Rare B-Side Track', artist: 'Unknown Artist', reason: 'Not available in catalog' },
-  { title: 'Exclusive Remix', artist: 'DJ Unknown', reason: 'Regional restriction' },
-  { title: 'Lost Demo Version', artist: 'Indie Band', reason: 'Not available in catalog' },
-];
+const successSongs = computed(() => transferStore.results.success);
+const failedSongs = computed(() => transferStore.results.failed);
+const totalSongs = computed(() => transferStore.results.total);
 
-const totalSongs = successSongs.length + failedSongs.length;
+function downloadFailedList() {
+  const lines = failedSongs.value.map(
+    (s) => `${s.title} — ${s.artist} (${s.reason})`,
+  );
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'not-found-songs.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function startOver() {
+  transferStore.reset();
+  router.push('/select');
+}
 </script>
 
 <style lang="scss" scoped>
@@ -167,18 +195,16 @@ const totalSongs = successSongs.length + failedSongs.length;
   }
 }
 
-.badge-spotify {
-  background-color: #16a34a !important;
+.badge-source,
+.badge-target {
   font-size: 0.85rem;
   font-weight: 600;
   padding: 6px 16px;
+  background-color: #16a34a !important;
 }
 
-.badge-tidal {
+.badge-target {
   background-color: #1a1a2e !important;
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 6px 16px;
 }
 
 .badge-arrow {
@@ -204,6 +230,12 @@ const totalSongs = successSongs.length + failedSongs.length;
 
 .download-btn {
   font-weight: 600;
+}
+
+.results-actions {
+  margin-top: 28px;
+  display: flex;
+  justify-content: center;
 }
 
 // Responsive

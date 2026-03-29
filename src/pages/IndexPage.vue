@@ -23,8 +23,11 @@
           <!-- Spotify button -->
           <q-btn
             class="connect-btn spotify-btn"
+            :class="{ 'btn-connected': authStore.isSpotifyConnected }"
             unelevated
             no-caps
+            :disable="authStore.isSpotifyConnected"
+            @click="authStore.connectSpotify"
           >
             <div class="btn-inner">
               <svg
@@ -38,15 +41,23 @@
                   fill="white"
                 />
               </svg>
-              <span>Connect with Spotify</span>
+              <span v-if="authStore.isSpotifyConnected">
+                <CheckCircle2 :size="18" class="q-mr-xs" />
+                Connected as {{ authStore.spotifyUser?.displayName }}
+              </span>
+              <span v-else>Connect with Spotify</span>
             </div>
           </q-btn>
 
           <!-- Tidal button -->
           <q-btn
             class="connect-btn tidal-btn"
+            :class="{ 'btn-connected': authStore.isTidalConnected }"
             unelevated
             no-caps
+            :disable="authStore.isTidalConnected || authStore.tidalPolling"
+            :loading="authStore.tidalPolling"
+            @click="authStore.connectTidal"
           >
             <div class="btn-inner">
               <svg
@@ -64,8 +75,57 @@
                   fill="white"
                 />
               </svg>
-              <span>Connect with Tidal</span>
+              <span v-if="authStore.isTidalConnected">
+                <CheckCircle2 :size="18" class="q-mr-xs" />
+                Connected as {{ authStore.tidalUser?.displayName }}
+              </span>
+              <span v-else-if="authStore.tidalPolling">
+                Waiting for authorization...
+              </span>
+              <span v-else>Connect with Tidal</span>
             </div>
+          </q-btn>
+
+          <!-- Tidal user code display -->
+          <div
+            v-if="authStore.tidalPolling && authStore.tidalUserCode"
+            class="tidal-code"
+          >
+            <p>
+              A Tidal login page has opened in a new tab.
+              <br />
+              If prompted, enter code:
+              <strong>{{ authStore.tidalUserCode }}</strong>
+            </p>
+          </div>
+        </q-card-section>
+
+        <!-- Error display -->
+        <q-banner
+          v-if="authStore.error"
+          class="q-mx-md q-mb-md bg-negative text-white"
+          rounded
+          dense
+        >
+          {{ authStore.error }}
+        </q-banner>
+
+        <!-- Continue button (both connected) -->
+        <q-card-section
+          v-if="authStore.bothConnected"
+          class="text-center q-pt-none"
+        >
+          <q-btn
+            class="continue-btn"
+            unelevated
+            no-caps
+            rounded
+            color="primary"
+            size="lg"
+            @click="$router.push('/select')"
+          >
+            <ArrowRight :size="20" class="q-mr-sm" />
+            Continue to Transfer
           </q-btn>
         </q-card-section>
 
@@ -86,11 +146,14 @@
 </template>
 
 <script setup>
-import { Music2 } from 'lucide-vue-next';
+import { Music2, CheckCircle2, ArrowRight } from 'lucide-vue-next';
+import { useAuthStore } from '../stores/auth';
 
 defineOptions({
   name: 'IndexPage',
 });
+
+const authStore = useAuthStore();
 </script>
 
 <style lang="scss" scoped>
@@ -170,6 +233,38 @@ defineOptions({
 .tidal-btn {
   background-color: #000000 !important;
   color: white;
+}
+
+.btn-connected {
+  opacity: 0.85;
+}
+
+.tidal-code {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-radius: 10px;
+  text-align: center;
+
+  p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #6b7280;
+    line-height: 1.5;
+  }
+
+  strong {
+    font-size: 1.2rem;
+    color: #1a1a2e;
+    letter-spacing: 2px;
+  }
+}
+
+.continue-btn {
+  width: 100%;
+  font-size: 1.05rem;
+  font-weight: 600;
+  padding: 14px;
 }
 
 .separator {
