@@ -8,10 +8,12 @@ import {
   removePKCE,
 } from './token-store';
 
-const CLIENT_ID = '7b41f3c80d47464c8556abed5c66a7d3';
+// Spotify web player client ID — works without Premium developer account
+const CLIENT_ID = '65b708073fc0480ea92a077233ca87bd';
 const AUTH_URL = 'https://accounts.spotify.com/authorize';
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const API_BASE = 'https://api.spotify.com/v1';
+const CORS_PROXY = 'https://corsproxy.io/?';
 const SCOPES = [
   'user-library-read',
   'user-library-modify',
@@ -23,6 +25,10 @@ const SCOPES = [
 
 function getRedirectUri() {
   return window.location.origin + window.location.pathname;
+}
+
+function proxied(url) {
+  return `${CORS_PROXY}${encodeURIComponent(url)}`;
 }
 
 // --- PKCE helpers ---
@@ -68,7 +74,7 @@ export async function handleCallback(code) {
   removePKCE('spotify');
 
   const { data } = await axios.post(
-    TOKEN_URL,
+    proxied(TOKEN_URL),
     new URLSearchParams({
       grant_type: 'authorization_code',
       code,
@@ -111,10 +117,32 @@ function headers() {
   return { Authorization: `Bearer ${getAccessToken()}` };
 }
 
+async function spotifyGet(url, params = {}) {
+  const { data } = await axios.get(proxied(url), {
+    headers: headers(),
+    params,
+  });
+  return data;
+}
+
+async function spotifyPost(url, body, extraHeaders = {}) {
+  const { data } = await axios.post(proxied(url), body, {
+    headers: { ...headers(), ...extraHeaders },
+  });
+  return data;
+}
+
+async function spotifyPut(url, body) {
+  const { data } = await axios.put(proxied(url), body, {
+    headers: headers(),
+  });
+  return data;
+}
+
 // --- API methods ---
 
 export async function getCurrentUser() {
-  const { data } = await axios.get(`${API_BASE}/me`, { headers: headers() });
+  const data = await spotifyGet(`${API_BASE}/me`);
   return { id: data.id, displayName: data.display_name };
 }
 
@@ -125,10 +153,7 @@ export async function getLikedSongs(onProgress) {
   let total = null;
 
   do {
-    const { data } = await axios.get(`${API_BASE}/me/tracks`, {
-      headers: headers(),
-      params: { limit, offset },
-    });
+    const data = await spotifyGet(`${API_BASE}/me/tracks`, { limit, offset });
     total = data.total;
 
     for (const item of data.items) {
@@ -154,9 +179,9 @@ export async function getPlaylists() {
   let total = null;
 
   do {
-    const { data } = await axios.get(`${API_BASE}/me/playlists`, {
-      headers: headers(),
-      params: { limit, offset },
+    const data = await spotifyGet(`${API_BASE}/me/playlists`, {
+      limit,
+      offset,
     });
     total = data.total;
 
@@ -182,9 +207,9 @@ export async function getPlaylistTracks(playlistId, onProgress) {
   let total = null;
 
   do {
-    const { data } = await axios.get(
+    const data = await spotifyGet(
       `${API_BASE}/playlists/${playlistId}/tracks`,
-      { headers: headers(), params: { limit, offset } },
+      { limit, offset },
     );
     total = data.total;
 
@@ -208,9 +233,11 @@ export async function getPlaylistTracks(playlistId, onProgress) {
 
 export async function searchTrack(title, artists) {
   const query = `track:${title} artist:${artists[0]}`;
-  const { data } = await axios.get(`${API_BASE}/search`, {
-    headers: headers(),
-    params: { q: query, type: 'track', limit: 5, market: 'US' },
+  const data = await spotifyGet(`${API_BASE}/search`, {
+    q: query,
+    type: 'track',
+    limit: 5,
+    market: 'US',
   });
 
   if (!data.tracks.items.length) return null;
@@ -227,17 +254,14 @@ export async function searchTrack(title, artists) {
 export async function saveTracks(trackIds) {
   for (let i = 0; i < trackIds.length; i += 50) {
     const batch = trackIds.slice(i, i + 50);
-    await axios.put(`${API_BASE}/me/tracks`, { ids: batch }, {
-      headers: headers(),
-    });
+    await spotifyPut(`${API_BASE}/me/tracks`, { ids: batch });
   }
 }
 
 export async function createPlaylist(userId, name, description = '') {
-  const { data } = await axios.post(
+  const data = await spotifyPost(
     `${API_BASE}/users/${userId}/playlists`,
     { name, description, public: false },
-    { headers: headers() },
   );
   return data.id;
 }
@@ -245,10 +269,8 @@ export async function createPlaylist(userId, name, description = '') {
 export async function addTracksToPlaylist(playlistId, trackUris) {
   for (let i = 0; i < trackUris.length; i += 100) {
     const batch = trackUris.slice(i, i + 100);
-    await axios.post(
-      `${API_BASE}/playlists/${playlistId}/tracks`,
-      { uris: batch },
-      { headers: headers() },
-    );
+    await spotifyPost(`${API_BASE}/playlists/${playlistId}/tracks`, {
+      uris: batch,
+    });
   }
 }
