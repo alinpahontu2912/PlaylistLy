@@ -26,11 +26,12 @@ export const useAuthStore = defineStore('auth', () => {
     spotify.login();
   }
 
-  function handleSpotifyImplicitCallback(hashFragment) {
+  async function handleSpotifyCallback(code) {
     error.value = null;
     try {
-      spotify.handleCallback(hashFragment);
-      // User will be loaded by loadExistingSession after redirect
+      await spotify.handleCallback(code);
+      const user = await spotify.getCurrentUser();
+      spotifyUser.value = user;
     } catch (err) {
       error.value = `Spotify auth failed: ${err.message}`;
     }
@@ -111,7 +112,7 @@ export const useAuthStore = defineStore('auth', () => {
     isTidalConnected,
     bothConnected,
     connectSpotify,
-    handleSpotifyImplicitCallback,
+    handleSpotifyCallback,
     connectTidal,
     loadExistingSession,
     disconnectSpotify,

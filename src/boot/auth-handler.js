@@ -1,30 +1,28 @@
 import { boot } from 'quasar/wrappers';
 import { useAuthStore } from '../stores/auth';
 
-export default boot(async ({ store, router }) => {
+export default boot(async ({ store }) => {
   const authStore = useAuthStore(store);
 
-  // Spotify Implicit Grant returns token in the URL hash:
-  // .../#access_token=xxx&token_type=Bearer&expires_in=3600&state=spotify
-  // But with hash-mode router, the hash is like:
-  // .../#/access_token=xxx&...  or  .../#access_token=xxx&...
-  const fullHash = window.location.hash;
+  // Spotify PKCE returns code in query params:
+  // ...?code=xxx&state=spotify
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  const state = params.get('state');
 
-  if (fullHash.includes('access_token') && fullHash.includes('state=spotify')) {
-    // Extract the fragment after the first '#' (skip router '#/')
-    const fragment = fullHash.replace(/^#\/?/, '');
+  if (code && state === 'spotify') {
     try {
-      authStore.handleSpotifyImplicitCallback(fragment);
+      await authStore.handleSpotifyCallback(code);
     } catch (err) {
       console.error('Spotify callback failed:', err);
     }
 
-    // Clean URL — go back to root
-    window.history.replaceState(
-      {},
-      '',
-      window.location.origin + window.location.pathname + '#/',
-    );
+    // Clean URL — remove query params, keep hash for router
+    const cleanUrl =
+      window.location.origin +
+      window.location.pathname +
+      window.location.hash;
+    window.history.replaceState({}, '', cleanUrl);
   }
 
   // Restore existing sessions from sessionStorage

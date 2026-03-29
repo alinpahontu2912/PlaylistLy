@@ -1,9 +1,16 @@
 import axios from 'axios';
-import { saveToken, loadToken, removeToken } from './token-store';
+import {
+  saveToken,
+  loadToken,
+  removeToken,
+  savePKCE,
+  loadPKCE,
+  removePKCE,
+} from './token-store';
 
-// Your registered Spotify app client ID
 const CLIENT_ID = '7b41f3c80d47464c8556abed5c66a7d3';
 const AUTH_URL = 'https://accounts.spotify.com/authorize';
+const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const API_BASE = 'https://api.spotify.com/v1';
 const CORS_PROXY = 'https://corsproxy.io/?';
 const SCOPES = [
@@ -23,31 +30,64 @@ function proxied(url) {
   return `${CORS_PROXY}${encodeURIComponent(url)}`;
 }
 
-// --- Auth (Implicit Grant — token returned in URL hash) ---
+// --- PKCE helpers ---
 
-export function login() {
+function generateRandomString(length) {
+  const chars =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  const array = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(array, (byte) => chars[byte % chars.length]).join('');
+}
+
+async function generateCodeChallenge(verifier) {
+  const data = new TextEncoder().encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+// --- Auth (PKCE) ---
+
+export async function login() {
+  const verifier = generateRandomString(128);
+  const challenge = await generateCodeChallenge(verifier);
+  savePKCE('spotify', verifier);
+
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
-    response_type: 'token',
+    response_type: 'code',
     redirect_uri: getRedirectUri(),
     scope: SCOPES,
+    code_challenge_method: 'S256',
+    code_challenge: challenge,
     state: 'spotify',
-    show_dialog: 'true',
   });
 
   window.location.href = `${AUTH_URL}?${params}`;
 }
 
-export function handleCallback(hashFragment) {
-  const params = new URLSearchParams(hashFragment);
-  const accessToken = params.get('access_token');
-  const expiresIn = parseInt(params.get('expires_in'), 10);
+export async function handleCallback(code) {
+  const verifier = loadPKCE('spotify');
+  removePKCE('spotify');
 
-  if (!accessToken) throw new Error('No access token in callback');
+  const { data } = await axios.post(
+    proxied(TOKEN_URL),
+    new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: getRedirectUri(),
+      client_id: CLIENT_ID,
+      code_verifier: verifier,
+    }),
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+  );
 
   const tokenData = {
-    accessToken,
-    expiresAt: Date.now() + expiresIn * 1000,
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresAt: Date.now() + data.expires_in * 1000,
   };
 
   saveToken('spotify', tokenData);
