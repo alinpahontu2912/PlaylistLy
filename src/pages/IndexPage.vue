@@ -3,18 +3,7 @@
     <div class="landing-content">
       <!-- Music note icon -->
       <div class="text-center q-mb-md">
-        <svg
-          width="56"
-          height="56"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"
-            fill="#6C3FC5"
-          />
-        </svg>
+        <Music2 :size="56" color="#6C3FC5" :stroke-width="1.5" />
       </div>
 
       <!-- Title -->
@@ -99,6 +88,8 @@
 </template>
 
 <script setup>
+import { Music2 } from 'lucide-vue-next';
+
 defineOptions({
   name: 'IndexPage',
 });
