@@ -86,14 +86,21 @@
             </div>
           </q-btn>
 
-          <!-- Tidal user code display -->
           <div
-            v-if="authStore.tidalPolling && authStore.tidalUserCode"
+            v-if="authStore.tidalPolling && authStore.tidalVerificationUrl"
             class="tidal-code"
           >
             <p>
-              A Tidal login page has opened in a new tab.
-              <br />
+              Complete sign-in in the new tab. If it didn't open,
+              <a
+                :href="authStore.tidalVerificationUrl"
+                target="_blank"
+                rel="noopener"
+              >
+                click here
+              </a>.
+            </p>
+            <p v-if="authStore.tidalUserCode">
               If prompted, enter code:
               <strong>{{ authStore.tidalUserCode }}</strong>
             </p>

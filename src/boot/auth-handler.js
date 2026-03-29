@@ -1,22 +1,30 @@
 import { boot } from 'quasar/wrappers';
 import { useAuthStore } from '../stores/auth';
 
-export default boot(async ({ store }) => {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get('code');
-  const state = params.get('state');
-
+export default boot(async ({ store, router }) => {
   const authStore = useAuthStore(store);
 
-  if (code && state === 'spotify') {
-    await authStore.handleSpotifyCallback(code);
+  // Spotify Implicit Grant returns token in the URL hash:
+  // .../#access_token=xxx&token_type=Bearer&expires_in=3600&state=spotify
+  // But with hash-mode router, the hash is like:
+  // .../#/access_token=xxx&...  or  .../#access_token=xxx&...
+  const fullHash = window.location.hash;
 
-    // Clean URL — remove query params, keep hash
-    const cleanUrl =
-      window.location.origin +
-      window.location.pathname +
-      window.location.hash;
-    window.history.replaceState({}, '', cleanUrl);
+  if (fullHash.includes('access_token') && fullHash.includes('state=spotify')) {
+    // Extract the fragment after the first '#' (skip router '#/')
+    const fragment = fullHash.replace(/^#\/?/, '');
+    try {
+      authStore.handleSpotifyImplicitCallback(fragment);
+    } catch (err) {
+      console.error('Spotify callback failed:', err);
+    }
+
+    // Clean URL — go back to root
+    window.history.replaceState(
+      {},
+      '',
+      window.location.origin + window.location.pathname + '#/',
+    );
   }
 
   // Restore existing sessions from sessionStorage

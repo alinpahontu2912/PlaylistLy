@@ -21,21 +21,16 @@ export const useAuthStore = defineStore('auth', () => {
 
   // --- Actions ---
 
-  async function connectSpotify() {
+  function connectSpotify() {
     error.value = null;
-    try {
-      await spotify.login();
-    } catch (err) {
-      error.value = `Spotify login failed: ${err.message}`;
-    }
+    spotify.login();
   }
 
-  async function handleSpotifyCallback(code) {
+  function handleSpotifyImplicitCallback(hashFragment) {
     error.value = null;
     try {
-      await spotify.handleCallback(code);
-      const user = await spotify.getCurrentUser();
-      spotifyUser.value = user;
+      spotify.handleCallback(hashFragment);
+      // User will be loaded by loadExistingSession after redirect
     } catch (err) {
       error.value = `Spotify auth failed: ${err.message}`;
     }
@@ -50,8 +45,12 @@ export const useAuthStore = defineStore('auth', () => {
       tidalUserCode.value = deviceAuth.userCode;
       tidalVerificationUrl.value = deviceAuth.verificationUrl;
 
-      // Open Tidal login in new tab
-      window.open(deviceAuth.verificationUrl, '_blank');
+      // Try opening in new tab — may be blocked by popup blocker
+      const popup = window.open(deviceAuth.verificationUrl, '_blank');
+      if (!popup) {
+        // Popup was blocked — user will use the manual link shown in UI
+        console.warn('Popup blocked — user must click the link manually');
+      }
 
       // Poll for token
       const tokenData = await tidal.pollForToken(
@@ -112,7 +111,7 @@ export const useAuthStore = defineStore('auth', () => {
     isTidalConnected,
     bothConnected,
     connectSpotify,
-    handleSpotifyCallback,
+    handleSpotifyImplicitCallback,
     connectTidal,
     loadExistingSession,
     disconnectSpotify,
