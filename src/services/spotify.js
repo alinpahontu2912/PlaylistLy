@@ -55,10 +55,13 @@ export async function login() {
   const challenge = await generateCodeChallenge(verifier);
   savePKCE('spotify', verifier);
 
+  const redirectUri = getRedirectUri();
+  console.log('[PlaylistLy] Spotify redirect_uri:', redirectUri);
+
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     response_type: 'code',
-    redirect_uri: getRedirectUri(),
+    redirect_uri: redirectUri,
     scope: SCOPES,
     code_challenge_method: 'S256',
     code_challenge: challenge,
