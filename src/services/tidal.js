@@ -25,11 +25,24 @@ export async function startDeviceAuth() {
     { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
   );
 
+  // Response may use camelCase or snake_case depending on endpoint
+  const verificationUrl =
+    data.verificationUriComplete ||
+    data.verification_uri_complete ||
+    data.verificationUri ||
+    data.verification_uri ||
+    '';
+
+  // Ensure URL has protocol prefix
+  const fullUrl = verificationUrl.match(/^https?:\/\//)
+    ? verificationUrl
+    : `https://${verificationUrl}`;
+
   return {
-    deviceCode: data.deviceCode,
-    userCode: data.userCode,
-    verificationUrl: data.verificationUriComplete || data.verificationUri,
-    expiresIn: data.expiresIn,
+    deviceCode: data.deviceCode || data.device_code,
+    userCode: data.userCode || data.user_code,
+    verificationUrl: fullUrl,
+    expiresIn: data.expiresIn || data.expires_in || 300,
     interval: data.interval || 5,
   };
 }
